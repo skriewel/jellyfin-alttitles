@@ -1,0 +1,35 @@
+.alt-titles {
+    margin: 0 0 .8em;
+    font-size: .95em;
+    line-height: 1.5;
+    opacity: .85;
+}
+.alt-label {
+    opacity: .7;
+}
+.alt-title {
+    white-space: nowrap;
+}
+.alt-sep {
+    opacity: .5;
+}
+.alt-toggle {
+    margin-left: .3em;
+    padding: 0 .4em;
+    font: inherit;
+    font-size: .9em;
+    color: inherit;
+    background: rgba(128, 128, 128, .2);
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.alt-toggle:hover,
+.alt-toggle:focus-visible {
+    background: rgba(128, 128, 128, .35);
+}
+@media (max-width: 40em) {
+    .alt-title {
+        white-space: normal;
+    }
+}

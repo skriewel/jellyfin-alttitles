@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Alternative Titles</title>
+</head>
+<body>
+<div id="AltTitlesConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <style>
+        #AltTitlesConfigPage .atc-row { display: flex; flex-wrap: wrap; gap: 1em; align-items: center; margin-bottom: 1em; }
+        #AltTitlesConfigPage .atc-row .emby-button { margin: 0; }
+        #AltTitlesConfigPage .atc-status { margin: .3em 0 1em; line-height: 1.6; }
+        #AltTitlesConfigPage .atc-results { white-space: pre-wrap; font-family: monospace; font-size: .85em; opacity: .85; }
+    </style>
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="AltTitlesConfigForm">
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Alternative Titles</h2>
+                    <p class="fieldDescription">Movies and series can be found under their other titles: in other languages, romanized (Japanese, Korean, Chinese) and as listed on AniDB for anime. The plugin adds a search provider to Jellyfin's search, so this works in the web client and in the apps. The titles are collected by the scheduled task "Collect alternative titles".</p>
+                </div>
+                <div class="atc-status fieldDescription" id="atcStatus"></div>
+
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input id="EnableSearch" type="checkbox" is="emby-checkbox" />
+                        <span>Find items by their alternative titles</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer">
+                    <label class="emby-checkbox-label">
+                        <input id="ShowOnDetails" type="checkbox" is="emby-checkbox" />
+                        <span>Show "Also known as" on movie and series pages (web client)</span>
+                    </label>
+                </div>
+
+                <h3 class="sectionTitle">Sources</h3>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="Languages">Title languages</label>
+                    <input id="Languages" type="text" is="emby-input" />
+                    <div class="fieldDescription">Language codes, separated by commas, e.g. "en, de". The title in each language comes from TMDB through Jellyfin's own TMDB provider; no key needed.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input id="UseAniDb" type="checkbox" is="emby-checkbox" />
+                        <span>AniDB titles for anime</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Romaji title, official titles and synonyms of every season, from AniDB's daily title list (matched through the Anime-Lists project). Downloaded at most once a day.</div>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input id="RomanizeKorean" type="checkbox" is="emby-checkbox" />
+                        <span>Romanize Korean titles</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">Revised Romanization, e.g. 기생충 → Gisaengchung.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">Own TMDB API key (optional)</label>
+                    <input id="TmdbApiKey" type="password" is="emby-input" autocomplete="off" />
+                    <div class="fieldDescription">With a free key from themoviedb.org (API key or read access token), every alternative title and translation TMDB knows is added: romanized titles of Japanese, Chinese and Korean films and dramas, working titles, titles in all languages.</div>
+                </div>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="RefreshDays">Refresh after (days)</label>
+                    <input id="RefreshDays" type="number" is="emby-input" min="1" max="3650" />
+                </div>
+
+                <h3 class="sectionTitle">Check</h3>
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="atcQuery">Search the alternative titles</label>
+                    <input id="atcQuery" type="text" is="emby-input" />
+                </div>
+                <div class="atc-row">
+                    <button is="emby-button" type="button" id="atcSearch" class="raised emby-button"><span>Search</span></button>
+                    <button is="emby-button" type="button" id="atcClear" class="raised emby-button"><span>Forget all collected titles</span></button>
+                </div>
+                <div class="atc-results" id="atcResults"></div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button"><span>Save</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = 'd98afd97-f0cf-4d6b-8a32-3009cd835ac4';
+            var page = document.querySelector('#AltTitlesConfigPage');
+            var bools = ['EnableSearch', 'ShowOnDetails', 'UseAniDb', 'RomanizeKorean'];
+            var numbers = ['RefreshDays'];
+            var texts = ['Languages', 'TmdbApiKey'];
+
+            function loadStatus() {
+                return ApiClient.getJSON(ApiClient.getUrl('AltTitles/Status')).then(function (s) {
+                    page.querySelector('#atcStatus').textContent = s.items
+                        ? s.items + ' movies and series collected, ' + s.titles + ' alternative titles in the search index.'
+                        : 'Nothing collected yet: run the scheduled task "Collect alternative titles" (Dashboard → Scheduled Tasks).';
+                });
+            }
+
+            page.querySelector('#atcSearch').addEventListener('click', function () {
+                var q = page.querySelector('#atcQuery').value.trim();
+                var out = page.querySelector('#atcResults');
+                if (!q) return;
+                out.textContent = '…';
+                ApiClient.getJSON(ApiClient.getUrl('AltTitles/Search', { q: q })).then(function (rows) {
+                    out.textContent = rows.length
+                        ? rows.map(function (r) { return r.name + '  (' + r.score + ')\n    ' + (r.matched || []).join('\n    '); }).join('\n')
+                        : 'No alternative title matches.';
+                });
+            });
+
+            page.querySelector('#atcClear').addEventListener('click', function () {
+                ApiClient.ajax({ type: 'POST', url: ApiClient.getUrl('AltTitles/Clear') }).then(loadStatus);
+            });
+
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    bools.forEach(function (k) { page.querySelector('#' + k).checked = !!config[k]; });
+                    numbers.forEach(function (k) { page.querySelector('#' + k).value = config[k]; });
+                    texts.forEach(function (k) { page.querySelector('#' + k).value = config[k] || ''; });
+                    return loadStatus();
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+            });
+
+            page.querySelector('#AltTitlesConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    bools.forEach(function (k) { config[k] = page.querySelector('#' + k).checked; });
+                    numbers.forEach(function (k) { config[k] = parseInt(page.querySelector('#' + k).value, 10) || 30; });
+                    texts.forEach(function (k) { config[k] = page.querySelector('#' + k).value.trim(); });
+                    return ApiClient.updatePluginConfiguration(pluginId, config);
+                }).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
